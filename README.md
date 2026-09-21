@@ -61,6 +61,8 @@ pip install -r riabroi-ratchakan-typeset/requirements.txt
 
 **ใช้กับผู้ช่วย AI อื่น (เช่น GPT)** — อัปโหลด `SKILL.md` และโฟลเดอร์ `references/` เป็นความรู้ของผู้ช่วย
 และอัปโหลด `scripts/` ถ้าผู้ช่วยรันโค้ด Python ได้
+สคริปต์ตัดคำต้องมี `pythainlp` — ถ้าผู้ช่วยติดตั้งไม่ได้ (เช่น sandbox ไม่มีอินเทอร์เน็ต)
+จะยังได้กฎใน `SKILL.md` อยู่ และสคริปต์จะขึ้นคำเตือนแทนที่จะเงียบ
 
 **เรียกจากโค้ด**
 
@@ -156,6 +158,8 @@ pip install -r riabroi-ratchakan-typeset/requirements.txt
 
 **With other AI assistants (e.g. GPT)** — upload `SKILL.md` and `references/` as knowledge,
 plus `scripts/` if the assistant can run Python.
+The segmentation script needs `pythainlp`. If the assistant can't install it (e.g. an offline sandbox),
+you still get the rules in `SKILL.md`, and the script warns instead of silently doing nothing.
 
 **From code**
 

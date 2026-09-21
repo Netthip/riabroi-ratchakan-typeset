@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+import warnings
 
 ZWSP = chr(0x200B)
 NBSP = chr(0x00A0)
@@ -71,7 +72,12 @@ NOMINAL_PREFIX = ("การ", "ความ")
 
 
 def _tokenize(text: str) -> list[str]:
-    """ตัดคำด้วย pythainlp ถ้ามี ไม่มีก็คืนทั้งก้อน (ไม่ทำให้พัง แค่ไม่ได้จุดตัด)"""
+    """
+    ตัดคำด้วย pythainlp ถ้าไม่มีจะคืนทั้งก้อน (ไม่พัง แต่ได้จุดตัด 0 จุด)
+
+    กรณีนั้นต้องเตือนดัง ๆ — sandbox ของผู้ช่วย AI บางตัวไม่มี pythainlp และติดตั้งเพิ่มไม่ได้
+    ถ้าเงียบ ผู้ใช้จะได้ไฟล์ที่ยังตัดกลางคำอยู่ โดยที่ทั้งคนและผู้ช่วยคิดว่าแก้แล้ว
+    """
     global _TOKENIZER
     if _TOKENIZER is None:
         try:
@@ -79,6 +85,11 @@ def _tokenize(text: str) -> list[str]:
             _TOKENIZER = word_tokenize
         except ImportError:
             _TOKENIZER = False
+            warnings.warn(
+                "ไม่พบ pythainlp — ตัดคำไทยไม่ได้ จะไม่มีการใส่ ZWSP เลย "
+                "(ติดตั้ง: pip install pythainlp) | pythainlp not installed: "
+                "Thai word breaking is disabled and no ZWSP will be inserted",
+                RuntimeWarning, stacklevel=2)
     if not _TOKENIZER:
         return [text]
     return _TOKENIZER(text, engine="newmm")
