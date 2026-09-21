@@ -1,22 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-ตัดคำไทยสำหรับเอกสารราชการ — ละเอียดกว่าตัวตัดคำมาตรฐาน
+ตัดคำไทยสำหรับเอกสารราชการ — v1.1
 
-ต่างจาก thai-docx (ตัวสาธารณะ) 5 เรื่อง ซึ่งเป็นบทเรียนจากงานจริง
+ทำงาน 2 ชั้น เหมือนเครื่องกำเนิดใบเสนองาน (โม 09) ของกิ๊ฟ
+  ชั้น 1  หาจุดตัดระดับคำ แล้วใส่ ZWSP (U+200B) ตรงขอบเขตคำ
+  ชั้น 2  keep_together — ลบจุดตัดที่ทำให้อ่านสะดุด และมัดคำด้วย NBSP (U+00A0)
 
-1. ตัดคำจาก "ข้อความทั้งย่อหน้า" แล้วค่อยแมปกลับเข้า run
-   เอกสารจาก Word มักมี run ที่ผ่ากลางคำ (เจอจริง: 'ประชาชนไม่โด' + 'นทอดทิ้ง')
-   ถ้าตัดทีละ run จะได้ขอบเขตคำผิดตรงรอยต่อ
-2. NO_BREAK_BEFORE ไม่รวมสระหน้า เ แ โ ใ ไ
-   สระหน้าเขียนนำหน้าพยัญชนะและเป็นตัวแรกของคำอยู่แล้ว ตัดบรรทัดหน้ามันได้
-   ถ้ารวมไว้ คำอย่าง และ/ได้/เป็น/ให้ จะเกาะคำก่อนหน้าเป็นก้อนยาว 25-30 ตัว
-3. min_token = 2 (ไม่ใช่ 4) สำหรับงานที่จัดชิดขอบขวา — ให้จุดตัดถี่พอจะไม่ถ่าง
-4. split_long_chunks ซอยก้อนที่ยาวเกิน 12 ตัว
-   'งบประมาณรายจ่าย' เป็นคำเดียวในพจนานุกรม พอไปอยู่ต้นบรรทัดจะดันบรรทัดก่อนถ่าง 3-4 ซม.
-5. KEEP_TOGETHER / LEAD_WORDS — วลีที่ห้ามขาด และคำนำวลีที่ห้ามค้างท้ายบรรทัด
+ชั้น 1 ต่างจาก thai-docx (ตัวสาธารณะ) ตรงที่
+  - ตัดคำจาก "ข้อความทั้งย่อหน้า" แล้วค่อยแมปกลับเข้า run
+    เอกสารจาก Word มักมี run ที่ผ่ากลางคำ (เจอจริง: 'ประชาชนไม่โด' + 'นทอดทิ้ง')
+  - NO_BREAK_BEFORE ไม่รวมสระหน้า เ แ โ ใ ไ — ถ้ารวม คำอย่าง และ/ได้/เป็น จะเกาะคำก่อนหน้า
+    เป็นก้อนยาว 25-30 ตัวจนบรรทัดถ่าง
+  - min_token = 2 · ซอยคำประสมยาวเกิน 12 ตัวตรงจุดที่ได้คำจริงทั้งสองฝั่ง
+  - ใส่ ZWSP เฉพาะจุด "ไทยชนไทย" ไม่แหกคำอังกฤษ ตัวเลข เบอร์โทร
 
-หมายเหตุสำหรับคนแก้ไฟล์นี้: อย่าพิมพ์อักขระ ZWSP ลงซอร์สตรง ๆ และอย่าเขียน escape ยูนิโค้ด
-ผ่านเครื่องมือแก้ไฟล์ เพราะจะกลายเป็นตัวล่องหนที่มองไม่เห็นใน diff — ใช้ chr(0x200B) เสมอ
+ชั้น 2 ถอดจาก thai_text.keep_together ของโม 09 (ก.ย. 2569) แล้วเพิ่มกฎจากการอ่านไล่
+รอยต่อบรรทัดทีละจุดตอนทำตัวอย่างเอกสารประเด็นถามตอบ (21 ก.ย. 2569) — ดู _reading_rules
+
+ใส่ ZWSP เฉพาะเนื้อความที่จัดชิดขอบขวาเท่านั้น (insert_zwsp_document ทำให้อัตโนมัติ)
+บทเรียนโม 09 (11 ก.ค. 2569): เคยแทรก ZWSP ทุกคำทุกย่อหน้า กิ๊ฟบ่นว่า "แยกถูกผิดไม่ออก"
+
+หมายเหตุสำหรับคนแก้ไฟล์นี้: อย่าพิมพ์อักขระ ZWSP/NBSP ลงซอร์สตรง ๆ และอย่าเขียน escape ยูนิโค้ด
+ผ่านเครื่องมือแก้ไฟล์ เพราะจะกลายเป็นตัวล่องหนที่มองไม่เห็นใน diff — ใช้ตัวแปร ZWSP/NBSP เสมอ
 """
 from __future__ import annotations
 
@@ -29,10 +34,12 @@ NBSP = chr(0x00A0)
 
 # ─────────────────────────────────────────────────────────── ตัวอักษรไทย
 
-THAI_CHAR = re.compile(r"[฀-๿]")
+THAI_CHAR = re.compile("[" + chr(0x0E00) + "-" + chr(0x0E7F) + "]")
+_TH = "[" + chr(0x0E01) + "-" + chr(0x0E4E) + "]"          # พยัญชนะถึงเครื่องหมาย (ไม่รวมเลขไทย)
+_DIG = "[0-9๐-๙]"
 
 # อักขระที่ห้ามขึ้นต้นบรรทัด = สระบน/ล่าง/หลัง วรรณยุกต์ ไม้ยมก ฯลฯ
-# เจตนา: ไม่มีสระหน้า (เ แ โ ใ ไ) อยู่ในชุดนี้ ดูเหตุผลข้อ 2 ด้านบน
+# เจตนา: ไม่มีสระหน้า (เ แ โ ใ ไ) อยู่ในชุดนี้
 NO_BREAK_BEFORE = set("ๆฯะัาำิีึืุูๅ็่้๊๋์ํฺ")
 
 # วลีที่ห้าม ZWSP ไปตัดกลาง — ตัวตัดคำมองเป็นคนละคำ แต่ในหนังสือราชการต้องอยู่ด้วยกัน
@@ -45,30 +52,54 @@ KEEP_TOGETHER = (
     "ตัวชี้วัด", "ก่อหนี้", "แนวทาง", "รวมทั้งสิ้น",
 )
 
+# คำจริงที่พจนานุกรม pythainlp ไม่มี ตัวตัดคำจึงผ่ากลาง — เจอจากการอ่านไล่รอยต่อบรรทัด
+# ต่างจาก KEEP_TOGETHER ตรงที่เป็น "คำ" ไม่ใช่วลี เจอคำใหม่แบบนี้ เพิ่มได้เลย
+DICT_GAPS = ("เฝ้าระวัง", "กรมควบคุมโรค", "รวมถึง", "สัญชาติไทย",
+             "น้ำหนักสัมพัทธ์", "เทียบเท่าเงินสด")
+
+# คำประสมยาวเกิน MAX_CHUNK ที่ห้ามซอย เพราะซอยแล้วแต่ละครึ่งอ่านเป็นคนละเรื่อง
+# '(โทรศัพท์ / มือถือ/แท็บเล็ต)' อ่านเป็นรายการ 3 อย่าง · 'รวมถึงสิทธิ / ประโยชน์อื่น ๆ'
+# ต่างจาก 'งบประมาณ|รายจ่าย' ที่ซอยแล้วยังอ่านเป็นเรื่องเดียวกัน (เจอตอนทดสอบ v1.1 21 ก.ย. 2569)
+WHOLE_COMPOUNDS = ("โทรศัพท์มือถือ", "สิทธิประโยชน์", "จัดซื้อจัดจ้าง")
+
+_KEEP_WHOLE = KEEP_TOGETHER + DICT_GAPS + WHOLE_COMPOUNDS
+
 # คำนำวลีที่ห้ามค้างท้ายบรรทัด ต้องลงไปขึ้นบรรทัดใหม่พร้อมคำที่ตามมา
 # หลักของกิ๊ฟไม่ใช่รายการคำบังคับ แต่คือ "คำที่ค้างบรรทัดบนเดี่ยว ๆ แล้วอ่านสะดุด"
-# เจอคำใหม่ที่อ่านแล้วสะดุดแบบเดียวกันเพิ่มได้ ถ้าไม่ทำให้ความหมายเปลี่ยน
 LEAD_WORDS = ("เรื่อง", "ให้", "เมื่อ", "ที่เป็น", "ตาม", "มี", "ต่อ",
               "วงเงิน", "แผนการ", "สถาบัน", "เพื่อ")
 # คำนำที่เป็นคำนาม เป็นกรรมของคำนำตัวหน้าได้ จึงติดกันเป็นทอด (มี/วงเงิน · ให้/สถาบัน)
+# คำนำที่เหลือเป็นคำเชื่อม/บุพบท = ต้นวลีใหม่ ตัดข้างหน้าได้ (…ให้เต็มวงเงิน / เมื่อสำนักงบประมาณ)
 LEAD_NOUNS = ("วงเงิน", "แผนการ", "สถาบัน")
 # ติดคำถัดไปเฉพาะเมื่อตามด้วย LEAD_NOUNS — '…๑ โครงการ รวม / วงเงิน ๕๓,๓๙๓,๔๐๐ บาท'
 LEAD_BEFORE_NOUNS = ("รวม",)
 # ห้ามขึ้นต้นบรรทัด ต้องติดคำข้างหน้า — 'สถาบันวัคซีน / แห่งชาติ'
 TAIL_WORDS = ("แห่งชาติ",)
-
-# คำที่กิ๊ฟเองปล่อยให้ค้างท้ายบรรทัดได้ ไม่ต้องมัด
+# คำที่กิ๊ฟเองปล่อยให้ค้างท้ายบรรทัดได้ ไม่ต้องมัด (ไว้อ้างอิง — ไม่ได้อยู่ใน LEAD_WORDS)
 ALLOW_DANGLING = ("และ", "หรือ", "ของ", "ใน", "ตั้งแต่")
+
+# คำนำที่ประสมกันเป็นคำเดียว ตัวตัดคำจึงไม่เห็นขอบคำหน้าคำนำตัวหลัง กฎคำนำปกติเลยไม่ทำงาน
+# 'โรคให้ / มีประสิทธิภาพ' · 'ของการมี / สมุดบันทึก' · 'อย่าง / มีประสิทธิภาพ'
+COMPOUND_LEADS = ("ให้มี", "การมี", "อย่างมี", "อย่างเป็น")
+# คำนำหน้าที่ยืนเดี่ยวแล้วต้องติดคำถัดไป — 'สนับสนุนเชิง / นโยบาย' · 'ติดต่อทาง / พันธุกรรม'
+PREFIX_WORDS = ("เชิง", "ทาง")
+# หน่วยนับที่ต้องลงมาพร้อมตัวเลข — "จำนวน ๔ แผนงาน"
+UNITS = ("แผนงาน", "ผลผลิต", "โครงการ", "รายการ")
 
 MAX_CHUNK = 12          # ก้อนยาวกว่านี้ให้หาจุดตัดย่อยเพิ่ม
 MIN_TOKEN = 2           # ชิ้นสั้นกว่านี้เกาะคำก่อนหน้า (2 สำหรับงานจัดชิดขอบขวา)
 
-_TOKENIZER = None
-_WORDS = None
-
 # คำที่มักถูกตัวตัดคำผลักไปเกาะคำถัดไปทั้งที่เป็นหางของคำหน้า
 # 'ดำเนิน|การตาม' ต้องเป็น 'ดำเนินการ|ตาม' — เช็กกับพจนานุกรมก่อนย้ายเสมอ
 NOMINAL_PREFIX = ("การ", "ความ")
+
+_TOKENIZER = None
+_WORDS = None
+
+# ขอบคำ = ต้นข้อความ · ช่องว่าง · ZWSP · NBSP · วงเล็บเปิด (lookbehind ที่ไม่กินตัวอักษร)
+_B = r"(?<![^\s" + ZWSP + NBSP + r"(])"
+_SEP = "[ " + ZWSP + "]+"          # ช่องว่างหรือ ZWSP อย่างน้อยหนึ่งตัว
+_Z = ZWSP + "+"
 
 
 def _tokenize(text: str) -> list[str]:
@@ -111,7 +142,7 @@ def is_thai(ch: str) -> bool:
     return bool(THAI_CHAR.match(ch))
 
 
-# ─────────────────────────────────────────────────────── ซอยก้อนที่ยาวเกิน
+# ═══════════════════════════════════════════ ชั้น 1: หาจุดตัดระดับคำ
 
 def _best_split(tok: str) -> int:
     """
@@ -122,7 +153,6 @@ def _best_split(tok: str) -> int:
     words = _words()
     n = len(tok)
     mid = n // 2
-    # ไล่จากกลางออกไปสองข้าง เพื่อให้ได้สองฝั่งที่สมดุล
     for off in range(0, n):
         for cut in {mid - off, mid + off}:
             if not (2 <= cut <= n - 2):
@@ -136,15 +166,12 @@ def _best_split(tok: str) -> int:
 
 def split_long_chunks(tokens: list[str], max_chars: int = MAX_CHUNK) -> list[str]:
     """
-    ซอยคำประสมยาว ๆ ที่พจนานุกรมมองเป็นคำเดียว
-    'งบประมาณรายจ่าย' (15 ตัว) -> 'งบประมาณ' + 'รายจ่าย'
-
-    ซอยเฉพาะจุดที่ได้คำจริงทั้งสองฝั่ง — ซอยมั่วกลางคำแย่กว่าปล่อยให้ยาว
-    และไม่แตะวลีใน KEEP_TOGETHER ที่ตั้งใจมัดไว้
+    ซอยคำประสมยาว ๆ ที่พจนานุกรมมองเป็นคำเดียว — 'งบประมาณรายจ่าย' -> 'งบประมาณ' + 'รายจ่าย'
+    ซอยเฉพาะจุดที่ได้คำจริงทั้งสองฝั่ง และไม่แตะวลี/คำที่ตั้งใจมัดไว้
     """
     out: list[str] = []
     for tok in tokens:
-        if any(p in tok for p in KEEP_TOGETHER):
+        if any(p in tok for p in _KEEP_WHOLE):
             out.append(tok)
             continue
         while len(tok) > max_chars:
@@ -161,7 +188,6 @@ def _fix_prefix_split(tokens: list[str]) -> list[str]:
     """
     ย้าย 'การ'/'ความ' ที่ตัวตัดคำผลักไปเกาะคำถัดไป กลับมาเป็นหางของคำหน้า
     'ดำเนิน' + 'การตาม'  ->  'ดำเนินการ' + 'ตาม'   (เพราะ 'ดำเนินการ' เป็นคำจริง)
-    ย้ายต่อเมื่อพจนานุกรมยืนยันว่าคำหน้า+คำนำหน้านั้นเป็นคำจริง ไม่งั้นปล่อยไว้
     """
     words = _words()
     out = list(tokens)
@@ -176,8 +202,6 @@ def _fix_prefix_split(tokens: list[str]) -> list[str]:
     return [t for t in out if t]
 
 
-# ─────────────────────────────────────────── รวมชิ้นสั้นและวลีที่ห้ามขาด
-
 def _merge_small(tokens: list[str], min_token: int) -> list[str]:
     """ชิ้นที่สั้นกว่า min_token ให้เกาะคำก่อนหน้า กันตัดกลางคำประสม"""
     out: list[str] = []
@@ -189,22 +213,13 @@ def _merge_small(tokens: list[str], min_token: int) -> list[str]:
     return out
 
 
-# 'จำนวน <เลข> <หน่วย>' และ 'พ.ศ. <ปี>' — เลขกับหน่วยต้องไม่ขาดจากกัน
-_AUTO_BIND = (
-    re.compile(r"พ\.ศ\.\s*[0-9๐-๙]{2,4}"),
-    re.compile(r"จำนวน\s*[0-9๐-๙,\.]+\s*\S{0,8}"),
-)
-
-
 def _protected_spans(text: str) -> list[tuple[int, int]]:
     """
-    ช่วงตัวอักษรที่ห้ามมีจุดตัดอยู่ข้างใน
-
-    ทำที่ระดับตัวอักษร ไม่ใช่ระดับ token เพราะขอบเขต token ไม่ตรงกับวลีเสมอ
-    (ตัวตัดคำคืน 'ตามตัว|ชี้|วัด' วลี 'ตัวชี้วัด' จึงคร่อมกลาง token แรก)
+    ช่วงตัวอักษรที่ห้ามมีจุดตัดอยู่ข้างใน — ทำที่ระดับตัวอักษร ไม่ใช่ระดับ token
+    เพราะขอบเขต token ไม่ตรงกับวลีเสมอ (ตัวตัดคำคืน 'ตามตัว|ชี้|วัด' วลีจึงคร่อมกลาง token)
     """
     spans = []
-    for phrase in KEEP_TOGETHER:
+    for phrase in _KEEP_WHOLE:
         start = 0
         while True:
             k = text.find(phrase, start)
@@ -212,59 +227,19 @@ def _protected_spans(text: str) -> list[tuple[int, int]]:
                 break
             spans.append((k, k + len(phrase)))
             start = k + 1
-    for rx in _AUTO_BIND:
-        for m in rx.finditer(text):
-            spans.append(m.span())
     return spans
 
 
-def _glue_leads(tokens: list[str]) -> list[str]:
-    """
-    มัดคำนำวลีกับคำที่ตามมา เพื่อไม่ให้ค้างท้ายบรรทัดเดี่ยว ๆ
-    ตัดบรรทัด 'ก่อน' คำพวกนี้ได้ตามปกติ ห้ามตัด 'หลัง'
-    """
-    def needs_glue(cur: str, nxt: str) -> bool:
-        cur, nxt = cur.strip(), nxt.strip()
-        if not nxt:
-            return False
-        if nxt in TAIL_WORDS:                       # 'แห่งชาติ' ห้ามขึ้นต้นบรรทัด
-            return True
-        if cur in LEAD_WORDS and cur not in ALLOW_DANGLING:
-            return True
-        if cur in LEAD_BEFORE_NOUNS and nxt in LEAD_NOUNS:
-            return True
-        return False
-
-    out: list[str] = []
-    i = 0
-    while i < len(tokens):
-        cur = tokens[i]
-        # ดูดคำถัดไปเป็นทอด ๆ ('มี'+'วงเงิน'+... ) และที่สำคัญคือ หลังดูดแล้ว
-        # ต้องตรวจคำถัดไปอีกที ไม่งั้น 'สถาบัน'+'วัคซีน' จะกระโดดข้ามการตรวจ 'แห่งชาติ'
-        while i + 1 < len(tokens) and needs_glue(cur, tokens[i + 1]):
-            cur += tokens[i + 1]
-            i += 1
-        out.append(cur)
-        i += 1
-    return out
-
-
-# ─────────────────────────────────────────────────── หาตำแหน่งที่ตัดได้
-
 def break_offsets(text: str, *, min_token: int = MIN_TOKEN,
                   max_chunk: int = MAX_CHUNK) -> set[int]:
-    """
-    คืนตำแหน่ง (ดัชนีตัวอักษร) ที่ใส่ ZWSP ได้ โดยผ่านกฎทั้งชุดแล้ว
-    ใส่เฉพาะจุดที่ 'ไทยชนไทย' จะได้ไม่ไปแหกคำอังกฤษ ตัวเลข หรือเลขหมายโทรศัพท์
-    """
+    """ตำแหน่ง (ดัชนีตัวอักษร) ที่ใส่ ZWSP ได้ — ชั้น 1 เท่านั้น ยังไม่ผ่าน keep_together"""
     if not text or not THAI_CHAR.search(text):
         return set()
 
     toks = _tokenize(text)
-    toks = _fix_prefix_split(toks)      # แก้ที่ตัวตัดคำผลัก การ/ความ ไปผิดฝั่ง
+    toks = _fix_prefix_split(toks)
     toks = split_long_chunks(toks, max_chunk)
     toks = _merge_small(toks, min_token)
-    toks = _glue_leads(toks)
 
     cuts, pos = set(), 0
     for tok in toks:
@@ -274,26 +249,21 @@ def break_offsets(text: str, *, min_token: int = MIN_TOKEN,
     cuts.discard(len(text))
 
     spans = _protected_spans(text)
-
     ok = set()
     for c in cuts:
-        if not (0 < c < len(text)):
-            continue
         prev, nxt = text[c - 1], text[c]
         if not (is_thai(prev) and is_thai(nxt)):
             continue            # ไทยชนไทยเท่านั้น จะได้ไม่แหกคำอังกฤษ/ตัวเลข
         if nxt in NO_BREAK_BEFORE or unicodedata.combining(nxt):
             continue            # ห้ามขึ้นบรรทัดด้วยสระบน/ล่าง/วรรณยุกต์
         if any(s < c < e for s, e in spans):
-            continue            # อยู่กลางวลีที่ห้ามขาด
+            continue            # อยู่กลางวลี/คำที่ห้ามขาด
         ok.add(c)
     return ok
 
 
-def insert_zwsp(text: str, *, min_token: int = MIN_TOKEN,
-                max_chunk: int = MAX_CHUNK) -> str:
-    """ใส่ ZWSP ลงข้อความเดี่ยว ๆ (ถ้ามี run ให้ใช้ insert_zwsp_paragraph แทน)"""
-    cuts = break_offsets(text, min_token=min_token, max_chunk=max_chunk)
+def _insert_raw(text: str, **kw) -> str:
+    cuts = break_offsets(text, **kw)
     if not cuts:
         return text
     out, prev = [], 0
@@ -304,76 +274,238 @@ def insert_zwsp(text: str, *, min_token: int = MIN_TOKEN,
     return ZWSP.join(out)
 
 
-# ──────────────────────────────────────── ระดับย่อหน้า (ของจริงที่ต้องใช้)
+# ═══════════════════════════════════ ชั้น 2: keep_together (จากโม 09)
+
+def _lead(word: str) -> str:
+    # ตัวตัดคำแยก "ที่เป็น" เป็น "ที่|เป็น" จึงยอม ZWSP คั่นกลางได้
+    return "ที่" + ZWSP + "?เป็น" if word == "ที่เป็น" else re.escape(word)
+
+
+def _glue_lead_words(text: str) -> str:
+    """
+    ลบจุดตัดบรรทัด 'หลัง' คำนำวลี และ 'ก่อน' คำท้าย — ช่องว่างเปลี่ยนเป็น NBSP จำนวนเท่าเดิม
+
+    ติดเฉพาะเมื่อคำนำยืนเป็นคำเดี่ยว ("ติดตาม" ไม่โดนเพราะ "ตาม" ติดอยู่กับ "ติด")
+    และไม่ติดถ้าคำถัดไปเป็นคำนำชนิดคำเชื่อม ซึ่งคือต้นวลีใหม่
+    (โม 09 เคยติดหมดจน "ให้เต็มวงเงิน / เมื่อสำนักงบประมาณ" กลายเป็นก้อนเดียวตัดไม่ได้)
+    """
+    def glue(m):
+        return m.group(1).replace(ZWSP, "") + m.group(2).replace(ZWSP, "").replace(" ", NBSP)
+
+    heads = "|".join(_lead(w) for w in sorted(LEAD_WORDS, key=len, reverse=True))
+    starts = "|".join(_lead(w) for w in LEAD_WORDS if w not in LEAD_NOUNS)
+    text = re.sub(_B + "(" + heads + ")(" + _SEP + r")(?=\S)(?!(?:" + starts + "))", glue, text)
+    # "รวม / วงเงิน…" ทำหลังรอบบนเสมอ
+    nouns = "|".join(_lead(w) for w in LEAD_NOUNS)
+    text = re.sub(_B + "(" + "|".join(map(re.escape, LEAD_BEFORE_NOUNS)) + ")(" + _SEP
+                  + ")(?=(?:" + nouns + "))", glue, text)
+    # "วงเงิน(งบประมาณ)" ต้องอยู่บรรทัดเดียวกับจำนวนเงินที่ตามมา — ไม่ครอบ "…รวมทั้งสิ้น"
+    # เพราะก้อนยาวเกือบครึ่งบรรทัด ตกลงบรรทัดล่างทีไรบรรทัดบนถูกถ่างทั้งแถว
+    text = re.sub("(วงเงิน(?:" + ZWSP + "?งบประมาณ)?)" + _SEP + "(" + _DIG + "[0-9๐-๙,.]*" + NBSP + "บาท)",
+                  lambda m: m.group(1).replace(ZWSP, "") + NBSP + m.group(2), text)
+    for word in TAIL_WORDS:
+        text = re.sub(_Z + "(" + re.escape(word) + ")", r"\1", text)
+    return text
+
+
+def _phrase_pattern(phrase: str) -> str:
+    """ZWSP ได้เฉพาะ 'ระหว่าง' ตัวอักษรของวลี — ไม่กิน ZWSP ที่อยู่หลังวลี
+    (โม 09 ต่อ ZWSP? หลังตัวสุดท้ายด้วย จุดตัดหลังวลีจึงหายไปทุกครั้งโดยไม่ได้ตั้งใจ)"""
+    return (ZWSP + "?").join(re.escape(ch) for ch in phrase)
+
+
+def _reading_rules(text: str) -> str:
+    """
+    กฎเพิ่มจากการอ่านไล่รอยต่อบรรทัดทีละจุด (ตัวอย่างประเด็นถามตอบ 21 ก.ย. 2569)
+    ทุกข้อเป็นแบบ "ห้ามตัดตรงนี้" — ไม่เปลี่ยนข้อความ
+    """
+    # ชื่อย่อ ≤6 ตัวที่ลงท้ายด้วยจุด ห้ามตัดข้างใน (สว|รส. -> สวรส.)
+    text = re.sub(_B + "((?:" + _TH + ZWSP + "?){1,6})(?=\\.)",
+                  lambda m: m.group(1).replace(ZWSP, ""), text)
+    # จุดที่ต่อด้วยอักษรไทยทันที = ชื่อย่อ ห้ามตัดหลังจุด (ม.|มหิดล) — จบประโยคจะมีช่องว่างตามเสมอ
+    text = re.sub("\\." + _Z + "(?=" + _TH + ")", ".", text)
+    # คำนำประสม: ให้มี · การมี · อย่างมี · อย่างเป็น · เพื่อให้ -> ติดคำถัดไป
+    text = re.sub("ให้" + _Z + "(?=มี)", "ให้", text)
+    text = re.sub("อย่าง" + _Z + "(?=มี|เป็น)", "อย่าง", text)
+    for head in COMPOUND_LEADS:
+        text = re.sub("(?<=" + head + ")" + _Z, "", text)
+    starts = "|".join(_lead(w) for w in LEAD_WORDS if w not in LEAD_NOUNS)
+    text = re.sub("(?<=เพื่อให้)" + _Z + "(?!(?:" + starts + "))", "", text)
+    # คำนำหน้าที่ยืนเดี่ยว ติดคำถัดไป (ต้องอยู่ที่ขอบคำ — "ทาง" ท้าย "แนวทาง" ไม่โดน)
+    for w in PREFIX_WORDS:
+        text = re.sub(_B + w + _Z, w, text)
+    return text
+
+
+def keep_together(text: str) -> str:
+    """
+    ชั้น 2 — ลบจุดตัดที่อ่านสะดุด และมัดคำด้วย NBSP
+    ถอดจาก Gift Command Center โม 09 thai_text.keep_together แล้วเพิ่ม _reading_rules
+
+    เปลี่ยนได้แค่ 2 อย่าง: ลบ ZWSP และเปลี่ยนช่องว่างเป็น NBSP — ตัวอักษรอื่นต้องเหมือนเดิม
+    """
+    if not text:
+        return text or ""
+    for phrase in _KEEP_WHOLE:
+        text = re.sub(_phrase_pattern(phrase), phrase, text)
+    # หน่วยนับลงมาทั้งก้อน — "จำนวน ๔ แผนงาน" · "รวม ๔ แผนงาน" (เลขไม่เกิน 3 หลัก "พ.ศ. 2570" จึงไม่โดน)
+    text = re.sub("(?<![0-9๐-๙,.])(" + _DIG + "{1,3})" + _SEP + "(" + "|".join(UNITS) + ")",
+                  r"\1" + NBSP + r"\2", text)
+    text = re.sub("(" + _B + "(?:จำนวน|รวม(?:" + ZWSP + "?เป็น)?))" + _SEP + "(?=" + _DIG + "{1,3}" + NBSP + ")",
+                  lambda m: m.group(1).replace(ZWSP, "") + NBSP, text)
+    # จำนวนเงินกับ "บาท" ต้องอยู่บรรทัดเดียวกัน
+    text = re.sub("(" + _DIG + "[0-9๐-๙,.]*)" + _SEP + "บาท", r"\1" + NBSP + "บาท", text)
+    # ห้ามตัดหลังวงเล็บเปิดหรือก่อนวงเล็บปิด
+    text = re.sub(r"\(" + _Z, "(", text)
+    text = re.sub(_Z + r"\)", ")", text)
+    # เลขแบบ/เลขหนังสือ เช่น "302/2" ห้ามขาดตรง /
+    text = re.sub("(" + _DIG + ")" + _Z + "/", r"\1/", text)
+    # เลขที่หนังสือทั้งก้อน "ที่ นร ๐๗๐๒/ว ๒๓๘"
+    text = re.sub("(?:" + _B + "ที่" + _SEP + ")?นร" + _SEP + _DIG + "[0-9๐-๙." + ZWSP + "]*/" + ZWSP + "*"
+                  "(?:ว[ " + ZWSP + "]*" + _DIG + "+(?:" + ZWSP + "*/" + ZWSP + "*" + _DIG + "+)?)?",
+                  lambda m: m.group(0).replace(ZWSP, "").replace(" ", NBSP), text)
+    # "ความ" ติดคำถัดไปเสมอ · "การ" แบบเดียวกันแต่ต้องยืนเป็นคำเดี่ยว ("ดำเนินการ" ไม่ติด)
+    text = re.sub("ความ" + _Z, "ความ", text)
+    text = re.sub(_B + "การ" + _Z, "การ", text)
+    # วงเล็บสั้น ๆ (ไม่เกิน 12 ตัว) อยู่บรรทัดเดียวทั้งก้อน — "(เฟส 2)"
+    text = re.sub(r"\(([^()]{1,12})\)",
+                  lambda m: "(" + m.group(1).replace(ZWSP, "").replace(" ", NBSP) + ")", text)
+    text = _glue_lead_words(text)
+    text = text.replace("พ.ศ. ", "พ.ศ." + NBSP)
+    # NBSP ที่มี ZWSP ตามหลังก็ยังตัดบรรทัดได้ — ลบ ZWSP ทิ้ง
+    text = re.sub(NBSP + _Z, NBSP, text)
+    return _reading_rules(text)
+
+
+# ═══════════════════════════════════════════════════════════ ใช้งาน
+
+def insert_zwsp(text: str, *, min_token: int = MIN_TOKEN, max_chunk: int = MAX_CHUNK) -> str:
+    """ใส่ ZWSP + keep_together ให้ข้อความเดี่ยว ๆ (ถ้ามี run ให้ใช้ insert_zwsp_paragraph)"""
+    return keep_together(_insert_raw(text, min_token=min_token, max_chunk=max_chunk))
+
+
+def plain_text(text: str) -> str:
+    """ข้อความก่อนผ่านตัวตัดคำ — ลบ ZWSP และคืน NBSP เป็นช่องว่าง (ไว้เทียบว่าข้อความไม่เปลี่ยน)"""
+    return text.replace(ZWSP, "").replace(NBSP, " ")
+
+
+def strip_zwsp(text: str) -> str:
+    """เอา ZWSP ออกอย่างเดียว (NBSP ที่มัดคำไว้ยังอยู่)"""
+    return text.replace(ZWSP, "")
+
+
+def _map_back(runs, texts: list[str], out: str) -> int:
+    """
+    แมปข้อความที่ผ่านตัวตัดคำกลับเข้าแต่ละ run
+    out ต่างจากต้นฉบับได้แค่ มี/ไม่มี ZWSP และช่องว่างที่กลายเป็น NBSP
+    """
+    full = "".join(texts)
+    owner = [i for i, t in enumerate(texts) for _ in t]
+    buf = [[] for _ in runs]
+    j, pending, added = 0, [], 0
+    for ch in out:
+        if ch == ZWSP:
+            pending.append(ch)
+            continue
+        if j >= len(full):
+            raise ValueError("ข้อความยาวกว่าต้นฉบับ")
+        if ch != full[j] and not (ch == NBSP and full[j] == " "):
+            if ch == NBSP:
+                continue                    # NBSP ที่ต้นฉบับไม่มีช่องว่าง — ทิ้ง ข้อความมาก่อน
+            raise ValueError("ข้อความเปลี่ยนที่ตำแหน่ง %d: %r -> %r" % (j, full[j], ch))
+        k = owner[j]
+        buf[k].extend(pending)
+        added += len(pending)
+        pending = []
+        buf[k].append(ch)
+        j += 1
+    if j != len(full):
+        raise ValueError("แมปข้อความไม่ครบ %d/%d" % (j, len(full)))
+    for r, b in zip(runs, buf):
+        r.text = "".join(b)
+    return added
+
 
 def insert_zwsp_paragraph(paragraph, *, min_token: int = MIN_TOKEN,
                           max_chunk: int = MAX_CHUNK) -> int:
     """
     ใส่ ZWSP ให้ย่อหน้าของ python-docx โดยตัดคำจากข้อความรวมทั้งย่อหน้า
-    แล้วแมปจุดตัดกลับเข้าแต่ละ run — นี่คือจุดต่างสำคัญจาก thai-docx
+    แล้วแมปกลับเข้าแต่ละ run — กันรอยต่อ run ที่ผ่ากลางคำ
 
-    คืนจำนวนจุดที่ใส่
+    คืนจำนวน ZWSP ที่ใส่
     """
     runs = [r for r in paragraph.runs if r.text]
     if not runs:
         return 0
-
     texts = [r.text.replace(ZWSP, "") for r in runs]
-    full = "".join(texts)
-    cuts = break_offsets(full, min_token=min_token, max_chunk=max_chunk)
-    if not cuts:
-        for r, t in zip(runs, texts):
-            r.text = t
-        return 0
-
-    added, base = 0, 0
-    for run, txt in zip(runs, texts):
-        end = base + len(txt)
-        local = sorted(c - base for c in cuts if base < c < end)
-        if local:
-            parts, prev = [], 0
-            for c in local:
-                parts.append(txt[prev:c])
-                prev = c
-            parts.append(txt[prev:])
-            txt = ZWSP.join(parts)
-            added += len(local)
-        # จุดตัดที่ตรงกับรอยต่อ run พอดี ต้องใส่ไว้ต้น run ถัดไป
-        # (Word ไม่ถือว่ารอยต่อ run เป็นจุดตัดบรรทัดโดยอัตโนมัติ)
-        if base in cuts and base > 0:
-            txt = ZWSP + txt
-            added += 1
-        run.text = txt
-        base = end
-    return added
+    out = insert_zwsp("".join(texts), min_token=min_token, max_chunk=max_chunk)
+    return _map_back(runs, texts, out)
 
 
-def insert_zwsp_document(doc, **kw) -> int:
-    """ใส่ ZWSP ทั้งเอกสาร รวมย่อหน้าในตาราง"""
-    n = 0
-    for p in doc.paragraphs:
+_JUSTIFIED = {"both", "distribute", "thaiDistribute", "lowKashida", "mediumKashida", "highKashida"}
+
+
+def _alignment(paragraph):
+    """ค่าการจัดวางที่มีผลจริง — ถ้าย่อหน้าไม่ได้ตั้งเอง ไล่หาจาก style"""
+    from docx.oxml.ns import qn
+    el = paragraph._element
+    ppr = el.pPr
+    jc = ppr.find(qn("w:jc")) if ppr is not None else None
+    if jc is not None:
+        return jc.get(qn("w:val"))
+    style = paragraph.style
+    while style is not None:
+        sppr = style.element.pPr
+        sjc = sppr.find(qn("w:jc")) if sppr is not None else None
+        if sjc is not None:
+            return sjc.get(qn("w:val"))
+        style = style.base_style
+    return None
+
+
+def is_justified(paragraph) -> bool:
+    return _alignment(paragraph) in _JUSTIFIED
+
+
+def insert_zwsp_document(doc, *, only_justified: bool = True, include_tables: bool = False,
+                         **kw) -> int:
+    """
+    ใส่ ZWSP ทั้งเอกสาร — ค่าตั้งต้นใส่เฉพาะย่อหน้าที่จัดชิดขอบขวา ตามที่โม 09 ทำ
+    หัวเรื่อง ป้าย ลายเซ็น ตาราง ไม่ต้องมี ZWSP (บทเรียน ก.ค. 2569: ใส่ทุกย่อหน้าแล้ว "แยกถูกผิดไม่ออก")
+
+    ถ้าไม่มีย่อหน้าไหนจัดชิดขอบขวาเลย จะเตือน แทนที่จะไม่ทำอะไรเงียบ ๆ
+    """
+    def targets():
+        for p in doc.paragraphs:
+            yield p
+        if include_tables:
+            for t in doc.tables:
+                for row in t.rows:
+                    for cell in row.cells:
+                        yield from cell.paragraphs
+
+    n = done = 0
+    for p in targets():
+        if only_justified and not is_justified(p):
+            continue
+        done += 1
         n += insert_zwsp_paragraph(p, **kw)
-    for t in doc.tables:
-        for row in t.rows:
-            for cell in row.cells:
-                for p in cell.paragraphs:
-                    n += insert_zwsp_paragraph(p, **kw)
+    if only_justified and done == 0:
+        warnings.warn(
+            "ไม่มีย่อหน้าที่จัดชิดขอบขวา จึงไม่ได้ใส่ ZWSP เลย — จัดชิดขอบขวาก่อน "
+            "(thai_fit.justify_body) หรือส่ง only_justified=False | no justified paragraphs: "
+            "nothing was changed", RuntimeWarning, stacklevel=2)
     return n
 
 
-def strip_zwsp(text: str) -> str:
-    """เอา ZWSP ออก (ใช้ตอนเทียบข้อความว่าไม่เปลี่ยน หรือตอนกิ๊ฟอยากได้ไฟล์สะอาด)"""
-    return text.replace(ZWSP, "")
-
-
-# ─────────────────────────────────────────────────────────── ตรวจผลจริง
+# ═══════════════════════════════════════════════════════════ ตรวจผลจริง
 
 def find_midword_breaks(line_pairs) -> list[tuple[str, str]]:
     """
-    รับคู่ (ท้ายบรรทัดบน, ต้นบรรทัดล่าง) ที่อ่านจาก PDF จริง
-    คืนคู่ที่ตัดกลางคำ — ใช้ยืนยันว่าจัดหน้าแล้วได้ผลจริง ไม่ใช่เชื่อว่าโค้ดถูก
+    รับคู่ (ท้ายบรรทัดบน, ต้นบรรทัดล่าง) ที่อ่านจาก PDF จริง คืนคู่ที่ตัดกลางคำ
 
-    ข้ามคู่ที่จุดตัดเป็นช่องว่างจริงในต้นฉบับ ไม่งั้นจะได้ผลบวกลวง
+    ข้อจำกัด: ใช้พจนานุกรมเดียวกับตัวตัดคำ จึงมองไม่เห็นคำที่พจนานุกรมไม่มี
+    (เฝ้า|ระวัง · กรมควบคุม|โรค) — ต้องอ่านรอยต่อบรรทัดทุกจุดเองด้วย inspect_docx --breaks
     """
     bad = []
     for tail, head in line_pairs:

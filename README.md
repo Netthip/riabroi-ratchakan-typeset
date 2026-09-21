@@ -45,7 +45,9 @@
 | ขอบเขตการตัดคำ | ทีละ run | ทั้งย่อหน้า แล้วแมปกลับเข้า run |
 | สระหน้า เ แ โ ใ ไ | ห้ามตัดข้างหน้า | ตัดได้ — ไม่งั้นคำเกาะกันเป็นก้อนยาวจนบรรทัดถ่าง |
 | คำประสมยาว | ปล่อยยาว | ซอยตรงจุดที่ได้คำจริงทั้งสองฝั่ง |
-| วลีที่ห้ามขาด / คำค้างท้ายบรรทัด | ไม่มี | มี |
+| วลีที่ห้ามขาด / คำค้างท้ายบรรทัด | ไม่มี | มี — กฎชุดเต็มของโม 09 (`keep_together`) |
+| ชื่อย่อ · ศัพท์ที่พจนานุกรมไม่มี | ตัดกลางได้ | ห้ามตัด (สวรส. · ม.มหิดล · เฝ้าระวัง) |
+| ใส่ ZWSP ที่ไหน | ทุกย่อหน้า | เฉพาะเนื้อความที่จัดชิดขอบขวา |
 | ขอบขวา | ชิดซ้าย | ชิดขอบ + บีบอักษร 0.1–0.7 pt เลือกขั้นที่ถ่างน้อยสุด |
 
 ### ใช้งาน
@@ -73,14 +75,15 @@ import thai_break, thai_fit
 
 doc = Document("ต้นฉบับ.docx")
 thai_fit.normalise_document(doc)       # ฟอนต์ฝั่งไทยครบ + เคลียร์ค่าที่ทำให้หน้ายืด
-thai_break.insert_zwsp_document(doc)   # บอก Word ว่าตัดบรรทัดตรงไหนได้
+thai_fit.justify_body(doc)             # เนื้อความชิดขอบขวา (หัวเรื่อง/ลายเซ็นไม่โดน)
+thai_break.insert_zwsp_document(doc)   # บอก Word ว่าตัดบรรทัดตรงไหนได้ (เฉพาะเนื้อความ)
 doc.save("ผลลัพธ์.docx")
 ```
 
 **ตรวจผล** (ต้องมี Microsoft Word บน Windows เพื่อส่งออก PDF)
 
 ```bash
-python scripts/inspect_docx.py ผลลัพธ์.docx --png ภาพ
+python scripts/inspect_docx.py ผลลัพธ์.docx --png ภาพ --breaks   # --breaks = รอยต่อบรรทัดทุกจุดไว้อ่านเอง
 python tests/test_thai_break.py
 ```
 
@@ -98,6 +101,7 @@ scripts/
   inspect_docx.py       ส่งออก PDF แล้ววัดผลจริง
 tests/                  เทสต์จากจุดที่เคยพังจริง
 evals/                  ทดสอบว่าผู้ช่วย AI หยิบสกิลนี้ถูกจังหวะ (14/14)
+CHANGELOG.md            บันทึกการเปลี่ยนแปลงแต่ละเวอร์ชัน
 ```
 
 ---
@@ -142,7 +146,9 @@ This repo goes further on both word breaking and typesetting, specifically for g
 | Segmentation scope | per run | whole paragraph, mapped back into runs |
 | Leading vowels เ แ โ ใ ไ | never break before | breakable — otherwise words clump into 25–30 character blocks |
 | Long compounds | left whole | split only where both halves are real dictionary words |
-| Protected phrases / dangling lead words | — | yes |
+| Protected phrases / dangling lead words | — | yes — the full `keep_together` rule set |
+| Abbreviations · words missing from the dictionary | may split | never split (สวรส. · ม.มหิดล · เฝ้าระวัง) |
+| Where ZWSP goes | every paragraph | justified body text only |
 | Right edge | left-aligned | justified, condensed 0.1–0.7 pt, least-stretched step wins |
 
 ### Usage
@@ -170,14 +176,15 @@ import thai_break, thai_fit
 
 doc = Document("input.docx")
 thai_fit.normalise_document(doc)       # complex-script fonts + clear page-bloating defaults
-thai_break.insert_zwsp_document(doc)   # tell Word where Thai lines may break
+thai_fit.justify_body(doc)             # justify body text (titles/signatures untouched)
+thai_break.insert_zwsp_document(doc)   # tell Word where Thai lines may break (body text only)
 doc.save("output.docx")
 ```
 
 **Verify** (needs Microsoft Word on Windows to export PDF)
 
 ```bash
-python scripts/inspect_docx.py output.docx --png images
+python scripts/inspect_docx.py output.docx --png images --breaks   # --breaks = every line break, to read yourself
 python tests/test_thai_break.py
 ```
 
@@ -189,6 +196,10 @@ python tests/test_thai_break.py
 - Child elements of `w:rPr` must follow schema order, or Word silently drops the property.
 - More condensing is not always better: pulling words up can leave the next line shorter and wider.
   Measure every step and keep the least-stretched one.
+- Put ZWSP in justified body text only. Inserting it into every paragraph made documents
+  impossible to review (the author's words: "can't tell right from wrong").
+- Automated checks use the same dictionary as the segmenter, so they miss words the dictionary lacks.
+  Every real error in the Q&A example (`สว / รส.`, `เฝ้า / ระวัง`) was found by reading each line break.
 
 ### Repository layout
 
@@ -204,4 +215,5 @@ scripts/
   inspect_docx.py       export PDF and measure the real result
 tests/                  regression tests from real failures
 evals/                  checks that assistants pick this skill at the right time (14/14)
+CHANGELOG.md            what changed in each version
 ```

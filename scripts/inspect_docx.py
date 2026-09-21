@@ -5,11 +5,15 @@
 ใช้:
     python inspect_docx.py ไฟล์.docx            ตรวจครบชุด
     python inspect_docx.py ไฟล์.docx --png out  เรนเดอร์เป็นภาพไว้ดูด้วยตา
+    python inspect_docx.py ไฟล์.docx --breaks   แสดงรอยต่อบรรทัดทุกจุด ไว้ไล่อ่านเอง
 
 ตรวจ 3 อย่าง
   1. จุดตัดบรรทัดกลางคำ  (สิ่งที่ Word ทำเองถ้าไม่ใส่ ZWSP — วัดจากเอกสารจริงเจอ 12.7%)
   2. ช่องว่างเฉลี่ยระหว่างอักขระ  (เกิน 0.8 pt = บรรทัดถ่าง ต้องบีบ)
   3. ขอบขวาของแต่ละบรรทัด  (ดูว่าชิดจริงไหม)
+
+ข้อ 1 ใช้พจนานุกรมเดียวกับตัวตัดคำ จึงมองไม่เห็นคำที่พจนานุกรมไม่มี (เฝ้า|ระวัง · กรมควบคุม|โรค)
+ต้องใช้ --breaks อ่านทุกรอยต่อด้วยตาเสมอ — ตอนทำตัวอย่างประเด็นถามตอบ จุดผิดจริงเจอจากการอ่านทั้งหมด
 
 หมายเหตุเรื่อง Word COM: ห้ามให้ Word บันทึกไฟล์ลง OneDrive โดยตรง
 สคริปต์นี้แค่ 'อ่าน' แล้วส่งออก PDF ลงโฟลเดอร์ชั่วคราว จึงปลอดภัย
@@ -33,7 +37,8 @@ def to_pdf(docx_path: str, out_dir: str | None = None) -> str:
     import win32com.client as win32
 
     docx_path = os.path.abspath(docx_path)
-    out_dir = out_dir or tempfile.mkdtemp(prefix="giftdoc_")
+    # Word ต้องการ path เต็ม — ส่งโฟลเดอร์แบบ relative มาจะขึ้น "The directory name isn't valid"
+    out_dir = os.path.abspath(out_dir) if out_dir else tempfile.mkdtemp(prefix="giftdoc_")
     os.makedirs(out_dir, exist_ok=True)
     dst = os.path.join(out_dir,
                        os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
@@ -151,6 +156,38 @@ def render_png(pdf_path: str, out_dir: str, dpi: int = 150, pages=None):
     return made
 
 
+def line_breaks(pdf_path: str, *, right_margin_cm: float = 2.0, slack_pt: float = 6.0):
+    """
+    รอยต่อบรรทัดทุกจุดที่เกิดจากการห่อบรรทัด (บรรทัดบนยาวจนชนขอบขวา)
+    คืน [(หน้า, ท้ายบรรทัดบน, ต้นบรรทัดล่าง)] ไว้ไล่อ่านด้วยตา
+
+    รวมบรรทัดตามแนว y ก่อน เพราะ PyMuPDF มักแยกเลขข้อ "1." ออกเป็นบรรทัดของมันเอง
+    ถ้าจับคู่ตาม block ตรง ๆ บรรทัดแรกของรายการเลขข้อจะหลุดการตรวจ (เคยพลาด "กรมควบคุม / โรค")
+    """
+    import fitz
+    zw = chr(0x200B)
+    out = []
+    d = fitz.open(pdf_path)
+    for pno, page in enumerate(d, 1):
+        right = page.rect.width - right_margin_cm * CM
+        rows = {}
+        for b in page.get_text("dict")["blocks"]:
+            for ln in b.get("lines", []):
+                y = round(ln["bbox"][3])
+                key = next((k for k in rows if abs(k - y) <= 2), y)
+                rows.setdefault(key, []).append(ln)
+        vis = []
+        for y in sorted(rows):
+            lns = sorted(rows[y], key=lambda l: l["bbox"][0])
+            txt = "".join(_line_text(l) for l in lns).replace(zw, "")
+            vis.append((max(l["bbox"][2] for l in lns), txt))
+        for (x1, a), (_, c) in zip(vis, vis[1:]):
+            if x1 >= right - slack_pt and a.strip() and c.strip():
+                out.append((pno, a.rstrip(), c.lstrip()))
+    d.close()
+    return out
+
+
 # ──────────────────────────────────────────────────────────── รายงาน
 
 def report(docx_path: str, png_dir: str | None = None):
@@ -187,8 +224,15 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(__doc__)
         raise SystemExit(1)
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     png = None
     if "--png" in sys.argv:
         png = sys.argv[sys.argv.index("--png") + 1]
-    report(sys.argv[1], png)
+    info = report(sys.argv[1], png)
+    if "--breaks" in sys.argv:
+        rows = line_breaks(info["pdf"])
+        print("  รอยต่อบรรทัดทั้งหมด %d จุด — อ่านทีละจุดว่าสะดุดไหม:" % len(rows))
+        for i, (pno, a, c) in enumerate(rows, 1):
+            print("   %3d  หน้า %d  %16s | %s" % (i, pno, a[-16:], c[:16]))

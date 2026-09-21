@@ -13,9 +13,9 @@
 
 | ไฟล์ | ใช้ทำอะไร |
 |---|---|
-| `scripts/thai_break.py` | ตัดคำ + ใส่ ZWSP — ตัวหลักของรีโป |
-| `scripts/thai_fit.py` | ฟอนต์ฝั่ง complex script · บีบอักษร · line break · ระยะบรรทัด |
-| `scripts/inspect_docx.py` | ส่งออก PDF แล้ววัดผลจริง (ตัดกลางคำ ช่องไฟ ขอบขวา) + เรนเดอร์ภาพ |
+| `scripts/thai_break.py` | ตัดคำ + ใส่ ZWSP + `keep_together` (มัดคำด้วย NBSP) — ตัวหลักของรีโป |
+| `scripts/thai_fit.py` | ฟอนต์ฝั่ง complex script · จัดเนื้อความชิดขอบขวา · บีบอักษร · line break · ระยะบรรทัด |
+| `scripts/inspect_docx.py` | ส่งออก PDF แล้ววัดผลจริง (ตัดกลางคำ ช่องไฟ ขอบขวา) · `--breaks` รอยต่อบรรทัดทุกจุด · เรนเดอร์ภาพ |
 | `tests/test_thai_break.py` | เทสต์จากจุดที่เคยพังจริง — รันก่อนแก้ตัวตัดคำทุกครั้ง |
 
 ```python
@@ -25,14 +25,17 @@ import thai_break, thai_fit
 
 doc = Document("ต้นฉบับ.docx")
 thai_fit.normalise_document(doc)          # ฟอนต์ครบฝั่ง cs + เคลียร์ docDefaults ที่ทำให้หน้ายืด
-n = thai_break.insert_zwsp_document(doc)  # ใส่ ZWSP ตรงขอบเขตคำ
+thai_fit.justify_body(doc)                # เนื้อความชิดขอบขวา
+n = thai_break.insert_zwsp_document(doc)  # ZWSP + keep_together เฉพาะย่อหน้าที่ชิดขอบขวา
 doc.save("ผลลัพธ์.docx")
 ```
 
 ตรวจผล:
 ```bash
-python scripts/inspect_docx.py ผลลัพธ์.docx --png ภาพ
+python scripts/inspect_docx.py ผลลัพธ์.docx --png ภาพ --breaks
 ```
+
+`to_pdf` รับโฟลเดอร์ปลายทางแบบ relative ได้แล้ว (v1.0 พังเพราะ Word ต้องการ path เต็ม)
 
 ---
 

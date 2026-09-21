@@ -228,3 +228,26 @@ def normalise_document(doc, *, font: str = DEFAULT_FONT, lang: str = "th-TH"):
                         set_run_font(r, font, lang=lang)
                         n += 1
     return n
+
+
+def justify_body(doc, *, min_chars: int = 60) -> int:
+    """
+    จัดชิดขอบขวา (thaiDistribute) ให้ "เนื้อความ" ตามกฎกิ๊ฟ "ขอบขวาต้องชิด"
+
+    เลือกเฉพาะย่อหน้าที่ยาวพอจะห่อบรรทัด (ตั้งแต่ min_chars ตัว) ไม่อยู่ในตาราง ไม่มี tab
+    และยังชิดซ้าย/ไม่ได้ตั้ง — หัวเรื่องกึ่งกลาง ป้ายสั้น ๆ บล็อกลายเซ็นที่ใช้ tab จึงไม่โดน
+    เรียกก่อน thai_break.insert_zwsp_document ซึ่งใส่ ZWSP เฉพาะย่อหน้าที่จัดชิดขอบขวา
+
+    คืนจำนวนย่อหน้าที่จัด
+    """
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    n = 0
+    for p in doc.paragraphs:
+        text = p.text
+        if len(text.strip()) < min_chars or "\t" in text:
+            continue
+        if p.alignment not in (None, WD_ALIGN_PARAGRAPH.LEFT, WD_ALIGN_PARAGRAPH.JUSTIFY):
+            continue
+        p.alignment = WD_ALIGN_PARAGRAPH.THAI_JUSTIFY
+        n += 1
+    return n
