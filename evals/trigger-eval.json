@@ -124,5 +124,32 @@
     "total": "14/14",
     "verdict": "คำอธิบายสกิลแยกขอบเขตได้ชัด ทั้งกับงานอื่นของกิ๊ฟ และกับ thai-docx"
   },
-  "renamed": "เปลี่ยนชื่อจาก gift-gov-docs เป็น riabroi-ratchakan-typeset เมื่อ 21 ก.ย. 2569 — ผลรอบ 18 ก.ย. ในช่อง got บันทึกตามชื่อที่สกิลใช้อยู่ตอนนั้น ไม่ได้แก้ย้อนหลัง"
+  "renamed": "เปลี่ยนชื่อจาก gift-gov-docs เป็น riabroi-ratchakan-typeset เมื่อ 21 ก.ย. 2569 — ผลรอบ 18 ก.ย. ในช่อง got บันทึกตามชื่อที่สกิลใช้อยู่ตอนนั้น ไม่ได้แก้ย้อนหลัง",
+  "retest_after_rename": {
+    "ran": "21 ก.ย. 2569",
+    "why": "เช็กว่าเปลี่ยนชื่อสกิลแล้วยังหยิบถูก — เลือกเฉพาะข้อที่ยากที่สุด",
+    "results": [
+      {
+        "id": 3,
+        "should_trigger": true,
+        "got": "riabroi-ratchakan-typeset",
+        "pass": true
+      },
+      {
+        "id": 13,
+        "should_trigger": false,
+        "got": "thai-docx",
+        "pass": true,
+        "note": "ให้เหตุผลเองว่าใบปลิวงานวัดไม่ใช่เอกสารราชการ"
+      },
+      {
+        "id": 14,
+        "should_trigger": false,
+        "got": "thai-docx",
+        "pass": true,
+        "note": "ให้เหตุผลเองว่าเป็นเอกสารส่วนตัว ไม่ใช่งานราชการ"
+      }
+    ],
+    "total": "3/3"
+  }
 }
