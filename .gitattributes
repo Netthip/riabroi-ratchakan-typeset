@@ -1,3 +1,5 @@
 * text=auto eol=crlf
 *.py text eol=lf
 *.md text eol=lf
+*.applescript text eol=lf
+*.sh text eol=lf

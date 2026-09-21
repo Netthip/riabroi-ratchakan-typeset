@@ -52,12 +52,24 @@
 
 ### ใช้งาน
 
-**ติดตั้ง**
+**ติดตั้ง — Windows**
 
 ```bash
 git clone https://github.com/Netthip/riabroi-ratchakan-typeset.git
 pip install -r riabroi-ratchakan-typeset/requirements.txt
+python riabroi-ratchakan-typeset/scripts/doctor.py --pdf
 ```
+
+**ติดตั้ง — macOS** (อ่าน [ใช้บน Mac](#ใช้บน-mac) ก่อนใช้ครั้งแรก)
+
+```bash
+git clone https://github.com/Netthip/riabroi-ratchakan-typeset.git ~/.claude/skills/riabroi-ratchakan-typeset
+cd ~/.claude/skills/riabroi-ratchakan-typeset
+python3 -m pip install -r requirements.txt
+python3 scripts/doctor.py --pdf
+```
+
+`doctor.py` ตรวจว่าเครื่องพร้อมไหม — Python ไลบรารี ตัวตัดคำ ฟอนต์ Word แล้วลองส่งออก PDF จริง 1 หน้า
 
 **ใช้เป็นสกิลใน Claude Code** — วางโฟลเดอร์ไว้ที่ `~/.claude/skills/riabroi-ratchakan-typeset`
 
@@ -80,12 +92,45 @@ thai_break.insert_zwsp_document(doc)   # บอก Word ว่าตัดบร
 doc.save("ผลลัพธ์.docx")
 ```
 
-**ตรวจผล** (ต้องมี Microsoft Word บน Windows เพื่อส่งออก PDF)
+**ตรวจผล** (ต้องมี Microsoft Word บน Windows หรือ Mac เพื่อส่งออก PDF — ไม่มี Word ใช้ LibreOffice ได้
+แต่ LibreOffice ตัดบรรทัดไม่เหมือน Word จึงใช้ดูภาพรวมเท่านั้น)
 
 ```bash
 python scripts/inspect_docx.py ผลลัพธ์.docx --png ภาพ --breaks   # --breaks = รอยต่อบรรทัดทุกจุดไว้อ่านเอง
 python tests/test_thai_break.py
+python tests/test_platform.py
 ```
+
+รายงานบอกด้วยว่า PDF มาจากโปรแกรมไหน และ **ฟอนต์ถูกแทนไหม** — ถ้าเครื่องไม่มี TH SarabunPSK
+Word จะใช้ฟอนต์อื่นแทนเงียบ ๆ แล้วผลวัดทั้งหมดใช้ไม่ได้
+
+### ใช้บน Mac
+
+ส่งออก PDF ด้วย Word for Mac แทน Word บน Windows — ส่วนตัดคำและจัดหน้าเหมือนเดิมทุกอย่าง
+
+**ก่อนใช้ครั้งแรก**
+
+1. **ติดตั้งฟอนต์ TH SarabunPSK** — Mac ไม่มีมาให้ ดับเบิลคลิกไฟล์ `.ttf` แล้วกด Install Font
+2. **ตั้ง Word ให้ส่งออก PDF แบบ Best for printing** — ใน Word เลือก File › Save As… › File Format: PDF
+   แล้วเลือก *Best for printing* บันทึกหนึ่งครั้ง สคริปต์จะใช้ตัวเลือกล่าสุดที่เลือกด้วยมือ
+   ถ้าค้างอยู่ที่ *Best for electronic distribution* Word จะส่งไฟล์ไปแปลงบนบริการออนไลน์ของ Microsoft
+3. **รัน `python3 scripts/doctor.py --pdf` ตอนนั่งอยู่หน้าเครื่อง** — จะมีกล่องขออนุญาต 2 กล่อง กดครั้งเดียวจบ
+   - macOS ถามว่าให้แอปที่รันคำสั่ง (Terminal หรือ Claude) ควบคุม Microsoft Word ได้ไหม → OK
+   - Word ถามสิทธิ์โฟลเดอร์ `~/riabroi-pdf` (Grant File Access) → Select… แล้ว Grant Access
+
+**ต่างจาก Windows ตรงไหน**
+
+- Mac เปิด Word ได้ตัวเดียว สคริปต์จึงเปิด **สำเนาชื่อสุ่ม** ใน `~/riabroi-pdf` ปิดเฉพาะไฟล์นั้น
+  และไม่ปิด Word ที่ใช้อยู่ — เอกสารที่เปิดค้างไว้ไม่ถูกแตะ
+- ใช้ `python3` แทน `python` · ถ้า pip ขึ้น `externally-managed-environment` (Python จาก Homebrew)
+  ให้ติดตั้งใน venv: `python3 -m venv ~/.venvs/riabroi` แล้วเรียกสคริปต์ด้วย `~/.venvs/riabroi/bin/python`
+- **Word for Mac อาจตัดบรรทัดไม่ตรงกับ Windows** — เอกสารที่จะพิมพ์หรือส่งต่อจากเครื่อง Windows
+  ให้ตรวจรอบสุดท้ายบน Windows
+- ไฟล์ TH SarabunIT๙ รุ่น Windows ตั้งชื่อตระกูลแบบใหม่ (name ID 16) ไว้ว่า TH SarabunPSK และ IT๙ วาดเลขอารบิก
+  เป็นรูปเลขไทย ถ้าติดตั้งคู่กับ PSK บน Mac อาจรวมเป็นตระกูลเดียวกัน — `doctor.py` จะเตือน
+
+ทางเดิน Mac ผ่านเทสต์แบบจำลองแล้ว แต่ยังไม่ได้ลองกับ Word for Mac จริง
+ถ้าเจอปัญหา เปิด issue พร้อมผล `python3 scripts/doctor.py --pdf`
 
 ### โครงรีโป
 
@@ -94,12 +139,14 @@ SKILL.md                กฎและลำดับงาน (ผู้ช่
 references/
   typesetting.md        จัดหน้า บีบอักษร คำค้าง วิธีวัดผล
   forms.md              ขอบกระดาษและผังของเอกสารแต่ละแบบ
-  toolchain.md          Word COM · อ่าน PDF · กับดักที่เจอมาแล้ว
+  toolchain.md          Word บน Windows/Mac · อ่าน PDF · กับดักที่เจอมาแล้ว
 scripts/
   thai_break.py         ตัดคำ + ใส่ ZWSP
   thai_fit.py           ฟอนต์ · บีบอักษร · line break · ระยะบรรทัด
-  inspect_docx.py       ส่งออก PDF แล้ววัดผลจริง
-tests/                  เทสต์จากจุดที่เคยพังจริง
+  inspect_docx.py       ส่งออก PDF แล้ววัดผลจริง · ตรวจฟอนต์ถูกแทน
+  word_pdf_mac.applescript  สั่ง Word for Mac ส่งออก PDF
+  doctor.py             ตรวจเครื่องก่อนใช้ (Windows / macOS)
+tests/                  เทสต์จากจุดที่เคยพังจริง + ส่วนที่ขึ้นกับเครื่อง (จำลอง)
 evals/                  ทดสอบว่าผู้ช่วย AI หยิบสกิลนี้ถูกจังหวะ (14/14)
 CHANGELOG.md            บันทึกการเปลี่ยนแปลงแต่ละเวอร์ชัน
 ```
@@ -153,12 +200,24 @@ This repo goes further on both word breaking and typesetting, specifically for g
 
 ### Usage
 
-**Install**
+**Install — Windows**
 
 ```bash
 git clone https://github.com/Netthip/riabroi-ratchakan-typeset.git
 pip install -r riabroi-ratchakan-typeset/requirements.txt
+python riabroi-ratchakan-typeset/scripts/doctor.py --pdf
 ```
+
+**Install — macOS** (read [On a Mac](#on-a-mac) before the first run)
+
+```bash
+git clone https://github.com/Netthip/riabroi-ratchakan-typeset.git ~/.claude/skills/riabroi-ratchakan-typeset
+cd ~/.claude/skills/riabroi-ratchakan-typeset
+python3 -m pip install -r requirements.txt
+python3 scripts/doctor.py --pdf
+```
+
+`doctor.py` checks the machine — Python libraries, the segmenter, fonts, Word — then exports one real test page to PDF.
 
 **As a Claude Code skill** — place the folder at `~/.claude/skills/riabroi-ratchakan-typeset`
 
@@ -181,12 +240,45 @@ thai_break.insert_zwsp_document(doc)   # tell Word where Thai lines may break (b
 doc.save("output.docx")
 ```
 
-**Verify** (needs Microsoft Word on Windows to export PDF)
+**Verify** (needs Microsoft Word on Windows or Mac to export PDF — LibreOffice works without Word,
+but it breaks Thai lines differently, so treat its output as a rough preview only)
 
 ```bash
 python scripts/inspect_docx.py output.docx --png images --breaks   # --breaks = every line break, to read yourself
 python tests/test_thai_break.py
+python tests/test_platform.py
 ```
+
+The report also says which program made the PDF and **whether the font was substituted** — without
+TH SarabunPSK installed, Word silently falls back to another font and every measurement becomes meaningless.
+
+### On a Mac
+
+PDF export goes through Word for Mac instead of Word on Windows. Segmentation and typesetting are unchanged.
+
+**Before the first run**
+
+1. **Install TH SarabunPSK.** macOS doesn't ship it. Double-click the `.ttf` file and choose Install Font.
+2. **Set Word's PDF export to Best for printing.** In Word, choose File › Save As… › File Format: PDF,
+   select *Best for printing* and save once. Scripted exports reuse the last manual choice;
+   *Best for electronic distribution* sends the document to a Microsoft online service for conversion.
+3. **Run `python3 scripts/doctor.py --pdf` while at the machine.** Two permission prompts appear once:
+   - macOS asks whether the app running the command (Terminal or Claude) may control Microsoft Word → OK
+   - Word asks for access to `~/riabroi-pdf` (Grant File Access) → Select… then Grant Access
+
+**What differs from Windows**
+
+- Word for Mac is a single instance, so the script opens a **randomly named copy** in `~/riabroi-pdf`,
+  closes only that copy, and never quits a Word you are using. Documents you have open are not touched.
+- Use `python3` instead of `python`. If pip reports `externally-managed-environment` (Homebrew Python),
+  install into a venv: `python3 -m venv ~/.venvs/riabroi`, then run scripts with `~/.venvs/riabroi/bin/python`.
+- **Word for Mac may break lines differently from Windows.** If the document will be printed or passed on
+  from a Windows machine, do the final check on Windows.
+- The Windows build of TH SarabunIT๙ declares its typographic family (name ID 16) as TH SarabunPSK, and it draws
+  Arabic digits as Thai numerals. Installed next to PSK on a Mac, the two may merge into one family — `doctor.py` warns.
+
+The Mac path passes simulated tests but has not yet been run against a real Word for Mac.
+If something fails, open an issue with the output of `python3 scripts/doctor.py --pdf`.
 
 ### Key findings
 
@@ -208,12 +300,14 @@ SKILL.md                rules and workflow (the AI assistant reads this)
 references/
   typesetting.md        condensing, dangling words, measurement
   forms.md              margins and layouts per document type
-  toolchain.md          Word COM, reading PDFs, known pitfalls
+  toolchain.md          Word on Windows/Mac, reading PDFs, known pitfalls
 scripts/
   thai_break.py         segmentation + ZWSP insertion
   thai_fit.py           fonts, condensing, line breaks, line spacing
-  inspect_docx.py       export PDF and measure the real result
-tests/                  regression tests from real failures
+  inspect_docx.py       export PDF, measure the real result, detect font substitution
+  word_pdf_mac.applescript  drives Word for Mac to export PDF
+  doctor.py             machine check before first use (Windows / macOS)
+tests/                  regression tests from real failures + simulated platform tests
 evals/                  checks that assistants pick this skill at the right time (14/14)
 CHANGELOG.md            what changed in each version
 ```
