@@ -3,6 +3,11 @@
 **เรียบร้อย** — ตัดคำและจัดตัวหนังสือเอกสารราชการไทย ในแบบของกิ๊ฟ
 *Riabroi — Thai government document typesetting: words break where they should, and the right edge stays flush.*
 
+<p align="center">
+  <img src="docs/before-after.png" width="900"
+       alt="ข้อความเดียวกันสองแบบ ฝั่งซ้ายตัดกลางคำ ฝั่งขวาตัดตามขอบเขตคำและขอบขวาชิด">
+</p>
+
 [ภาษาไทย](#ภาษาไทย) · [English](#english)
 
 ---
@@ -150,6 +155,10 @@ tests/                  เทสต์จากจุดที่เคยพ�
 evals/                  ทดสอบว่าผู้ช่วย AI หยิบสกิลนี้ถูกจังหวะ (14/14)
 CHANGELOG.md            บันทึกการเปลี่ยนแปลงแต่ละเวอร์ชัน
 ```
+
+### สัญญาอนุญาต
+
+[MIT](LICENSE) — เอาไปใช้ แก้ต่อ และแจกจ่ายได้ทั้งงานราชการและงานส่วนตัว ขอแค่ติดประกาศลิขสิทธิ์ไปด้วย
 
 ---
 
@@ -311,3 +320,7 @@ tests/                  regression tests from real failures + simulated platform
 evals/                  checks that assistants pick this skill at the right time (14/14)
 CHANGELOG.md            what changed in each version
 ```
+
+### License
+
+[MIT](LICENSE) — use it, change it, ship it, in government work or your own. Just keep the copyright notice.
