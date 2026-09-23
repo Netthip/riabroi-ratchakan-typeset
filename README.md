@@ -156,6 +156,10 @@ evals/                  ทดสอบว่าผู้ช่วย AI หย�
 CHANGELOG.md            บันทึกการเปลี่ยนแปลงแต่ละเวอร์ชัน
 ```
 
+### สัญญาอนุญาต
+
+[MIT](LICENSE) — เอาไปใช้ แก้ต่อ และแจกจ่ายได้ทั้งงานราชการและงานส่วนตัว ขอแค่ติดประกาศลิขสิทธิ์ไปด้วย
+
 ---
 
 ## English
@@ -316,3 +320,7 @@ tests/                  regression tests from real failures + simulated platform
 evals/                  checks that assistants pick this skill at the right time (14/14)
 CHANGELOG.md            what changed in each version
 ```
+
+### License
+
+[MIT](LICENSE) — use it, change it, ship it, in government work or your own. Just keep the copyright notice.
