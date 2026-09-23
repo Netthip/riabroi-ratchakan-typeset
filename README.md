@@ -3,6 +3,11 @@
 **เรียบร้อย** — ตัดคำและจัดตัวหนังสือเอกสารราชการไทย ในแบบของกิ๊ฟ
 *Riabroi — Thai government document typesetting: words break where they should, and the right edge stays flush.*
 
+<p align="center">
+  <img src="docs/before-after.png" width="900"
+       alt="ข้อความเดียวกันสองแบบ ฝั่งซ้ายตัดกลางคำ ฝั่งขวาตัดตามขอบเขตคำและขอบขวาชิด">
+</p>
+
 [ภาษาไทย](#ภาษาไทย) · [English](#english)
 
 ---
