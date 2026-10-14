@@ -372,6 +372,9 @@ def keep_together(text: str) -> str:
                   lambda m: "(" + m.group(1).replace(ZWSP, "").replace(" ", NBSP) + ")", text)
     text = _glue_lead_words(text)
     text = text.replace("พ.ศ. ", "พ.ศ." + NBSP)
+    # ไม้ยมกห้ามขึ้นต้นบรรทัด — "สวย ๆ" ช่องว่างหน้า ๆ เป็น NBSP · "บ่อยๆ" ห้ามมีจุดตัดหน้า ๆ
+    text = re.sub("[ " + ZWSP + "]*" + " " + "[ " + ZWSP + "]*" + "(?=ๆ)", NBSP, text)
+    text = re.sub(_Z + "(?=ๆ)", "", text)
     # NBSP ที่มี ZWSP ตามหลังก็ยังตัดบรรทัดได้ — ลบ ZWSP ทิ้ง
     text = re.sub(NBSP + _Z, NBSP, text)
     return _reading_rules(text)
