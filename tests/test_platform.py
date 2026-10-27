@@ -273,6 +273,44 @@ def test_pdf_text_repair():
 
 # ─────────────────────────────────────────────────── ติดตั้ง
 
+def _with_settings(src, dst, settings):
+    """คัดลอก docx โดยเปลี่ยน word/settings.xml (None = ไม่มีไฟล์นี้)"""
+    import zipfile
+    with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            if item.filename == "word/settings.xml":
+                if settings is not None:
+                    zout.writestr(item, settings)
+            else:
+                zout.writestr(item, zin.read(item.filename))
+
+
+def test_compat_mode():
+    tmp = tempfile.mkdtemp()
+    try:
+        src = os.path.join(tmp, "a.docx")
+        _docx(src)
+        # python-docx Document() ตั้งโหมด 14 — หน้าทดสอบของ doctor.py ก็สร้างแบบนี้
+        assert ix.compat_mode(src) == 14
+        assert "Word 2010" in ix.compat_text(14) and "แบบเก่า" in ix.compat_text(14)
+        w = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+        cases = [
+            ('<w:settings %s><w:compat><w:compatSetting w:name="compatibilityMode" '
+             'w:uri="http://schemas.microsoft.com/office/word" w:val="15"/></w:compat></w:settings>' % w, 15),
+            ('<w:settings %s><w:compat><w:compatSetting w:name="enableOpenTypeFeatures" '
+             'w:val="1"/></w:compat></w:settings>' % w, None),   # ตัวอื่นที่ไม่ใช่โหมด
+            (None, None),                                         # ไม่มี settings.xml
+        ]
+        for settings, want in cases:
+            dst = os.path.join(tmp, "b.docx")
+            _with_settings(src, dst, settings)
+            assert ix.compat_mode(dst) == want, (settings, ix.compat_mode(dst))
+        assert ix.compat_text(15) == "15 (Word 2013 ขึ้นไป)"
+        assert "ไม่ได้ตั้ง" in ix.compat_text(None)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def test_pywin32_only_on_windows():
     """pywin32 ไม่มีบน Mac — ไม่ใส่เงื่อนไข pip install ล้มทั้งไฟล์"""
     with open(os.path.join(ROOT, "requirements.txt"), encoding="utf-8") as f:

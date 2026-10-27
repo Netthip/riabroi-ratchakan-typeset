@@ -239,6 +239,8 @@ def pdf_test() -> None:
         thai_fit.normalise_document(doc)
         thai_break.insert_zwsp_document(doc)
         doc.save(src)
+        # หน้าทดสอบสร้างจาก Document() ของ python-docx (โหมด 14) — บอกไว้ว่าผลจุดตัดบรรทัดด้านล่างวัดในโหมดไหน
+        say(OK, "โหมดของหน้าทดสอบ", ix.compat_text(ix.compat_mode(src)))
         try:
             pdf = ix.to_pdf(src, tmp)
         except Exception as e:              # รายงานแทนการล้ม — ข้อความมีวิธีแก้อยู่แล้ว

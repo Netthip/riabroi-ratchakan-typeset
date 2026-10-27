@@ -8,11 +8,12 @@
     python inspect_docx.py ไฟล์.docx --breaks   แสดงรอยต่อบรรทัดทุกจุด ไว้ไล่อ่านเอง
     python inspect_docx.py ไฟล์.docx --engine libreoffice   เครื่องที่ไม่มี Word (ได้ผลคร่าว ๆ)
 
-ตรวจ 4 อย่าง
+ตรวจ 5 อย่าง
   1. จุดตัดบรรทัดกลางคำ  (สิ่งที่ Word ทำเองถ้าไม่ใส่ ZWSP — วัดจากเอกสารจริงเจอ 12.7%)
   2. ช่องว่างเฉลี่ยระหว่างอักขระ  (เกิน 0.8 pt = บรรทัดถ่าง ต้องบีบ)
   3. ขอบขวาของแต่ละบรรทัด  (ดูว่าชิดจริงไหม)
   4. ฟอนต์ใน PDF ตรงกับที่เอกสารสั่งไหม  (เครื่องไม่มีฟอนต์ Word จะใช้ตัวอื่นแทนเงียบ ๆ ผลวัดใช้ไม่ได้)
+  5. โหมดความเข้ากันได้ของไฟล์  (Word จัดตารางและช่องว่างต่างกันตามโหมด ผลวัดคนละโหมดเทียบกันไม่ได้)
 
 ข้อ 1 ใช้พจนานุกรมเดียวกับตัวตัดคำ จึงมองไม่เห็นคำที่พจนานุกรมไม่มี (เฝ้า|ระวัง, กรมควบคุม|โรค)
 ต้องใช้ --breaks อ่านทุกรอยต่อด้วยตาเสมอ — ตอนทำตัวอย่างประเด็นถามตอบ จุดผิดจริงเจอจากการอ่านทั้งหมด
@@ -504,6 +505,42 @@ def font_check(docx_path: str, pdf_path: str) -> dict:
             "others": [f for f in embedded if _norm_font(f) not in known]}
 
 
+# ──────────────────────────────────────────────────────────── โหมดความเข้ากันได้
+
+# Word จัดหน้าไม่เหมือนกันตาม compatibilityMode ใน word/settings.xml (ที่รู้แล้ว 2 เรื่อง):
+#   ต่ำกว่า 15  ตารางเลื่อนออกซ้ายเท่าระยะขอบในเซลล์แรก — คือเกร็ด tblInd ลบ 0.19 ใน references/forms.md
+#   15         บรรทัดที่จัดชิดขอบบีบช่องว่างได้ถึง ~20% ให้คำขึ้นมาบรรทัดเดียวกันได้มากขึ้น (ไม่ทำกับบรรทัดที่มี tab)
+#              ข้อนี้มาจากที่ KhianKrub สังเกต Word แล้วเขียนไว้ในโค้ด — ยังไม่ได้วัดเอง
+# python-docx Document() ตั้งโหมด 14 ส่วนไฟล์ที่ Word รุ่นปัจจุบันสร้างเป็น 15
+# ผลวัดจากคนละโหมดจึงเทียบกันตรง ๆ ไม่ได้ — รายงานไว้ทุกครั้ง ไม่เปลี่ยนโหมดให้เอง
+COMPAT_CURRENT = 15
+COMPAT_LABEL = {11: "Word 2003", 12: "Word 2007", 14: "Word 2010", 15: "Word 2013 ขึ้นไป"}
+
+
+def compat_mode(docx_path: str) -> int | None:
+    """compatibilityMode ของไฟล์ · None = ไม่ได้ตั้งไว้ (Word เปิดแบบเข้ากันได้กับรุ่นเก่า)"""
+    import zipfile
+    with zipfile.ZipFile(docx_path) as z:
+        if "word/settings.xml" not in z.namelist():
+            return None
+        xml = z.read("word/settings.xml").decode("utf-8", "replace")
+    for tag in re.findall(r"<w:compatSetting\b[^>]*>", xml):
+        if re.search(r'\bw:name="compatibilityMode"', tag):
+            val = re.search(r'\bw:val="(\d+)"', tag)
+            return int(val.group(1)) if val else None
+    return None
+
+
+def compat_text(mode: int | None) -> str:
+    """ข้อความสำหรับรายงาน — บอกโหมดและผลที่ตามมาถ้าไม่ใช่โหมดปัจจุบัน"""
+    if mode is None:
+        return "ไม่ได้ตั้ง — Word เปิดแบบเข้ากันได้กับรุ่นเก่า (ตาราง/ช่องว่างจัดแบบเก่า)"
+    label = "%d (%s)" % (mode, COMPAT_LABEL.get(mode, "รุ่นอื่น"))
+    if mode < COMPAT_CURRENT:
+        return label + " — Word จัดตาราง/ช่องว่างแบบเก่า ไฟล์ที่ Word รุ่นปัจจุบันสร้างเป็น 15"
+    return label
+
+
 # ──────────────────────────────────────────────────────────── รายงาน
 
 def report(docx_path: str, png_dir: str | None = None, *, engine: str = "auto"):
@@ -512,6 +549,7 @@ def report(docx_path: str, png_dir: str | None = None, *, engine: str = "auto"):
     pdf = to_pdf(docx_path, engine=engine)
     made_by = pdf_engine(pdf)
     fonts = font_check(docx_path, pdf)
+    compat = compat_mode(docx_path)
     bad, total = midword_breaks(pdf)
     gaps = char_gaps(pdf)
     fills = line_fill(pdf)
@@ -520,6 +558,7 @@ def report(docx_path: str, png_dir: str | None = None, *, engine: str = "auto"):
     print("  ส่งออกด้วย     : %s" % ENGINE_LABEL.get(made_by, made_by))
     if made_by == "libreoffice":
         print("  เตือน: " + LO_WARNING)
+    print("  โหมดของไฟล์    : %s" % compat_text(compat))
     print("  ฟอนต์ใน PDF    : %s" % (", ".join(fonts["embedded"]) or "-"))
     if fonts["main_missing"]:
         print("  เตือน: ไม่มี %s ใน PDF — เครื่องนี้ไม่มีฟอนต์นี้ Word จึงใช้ตัวอื่นแทน "
@@ -545,7 +584,7 @@ def report(docx_path: str, png_dir: str | None = None, *, engine: str = "auto"):
         made = render_png(pdf, png_dir)
         print("  ภาพ            : %d หน้า -> %s" % (len(made), png_dir))
     return {"midword": len(bad), "lines": total, "stretched": len(wide), "pdf": pdf,
-            "engine": made_by, "fonts": fonts}
+            "engine": made_by, "fonts": fonts, "compat": compat}
 
 
 if __name__ == "__main__":

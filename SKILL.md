@@ -111,6 +111,14 @@ Word ตัดบรรทัดไทย **ตรงไหนก็ได้ �
 อยากได้ที่เพิ่ม ให้ไปลด `space_after` กับลบย่อหน้าว่างแทน
 (ย่อหน้าว่าง 1 บรรทัดกิน ~26 pt ซึ่งคุมไม่ได้ ส่วน space_after คุมเป็น pt ได้)
 
+### รู้โหมดความเข้ากันได้ของไฟล์ก่อนวัด — แต่อย่าเปลี่ยนเอง
+
+Word จัดหน้าต่างกันตาม `compatibilityMode` ใน `word/settings.xml`: โหมดต่ำกว่า 15 ตารางเลื่อนออกซ้าย
+เท่าระยะขอบในเซลล์ (คือเกร็ด `tblInd` ใน `references/forms.md`) · โหมด 15 บีบช่องว่างในบรรทัดที่จัดชิดขอบได้
+`Document()` ของ python-docx ได้โหมด **14** ส่วนไฟล์จาก Word รุ่นปัจจุบันเป็น **15** —
+`inspect_docx.py` และ `doctor.py` รายงานโหมดไว้แล้ว **ห้ามเปลี่ยนโหมดของแม่แบบเงียบ ๆ**
+จะเปลี่ยนต้องวัด tblInd จำนวนหน้า และขั้นบีบใหม่ แล้วให้กิ๊ฟยืนยันก่อน (`references/toolchain.md` หัวข้อ 2)
+
 ### ตั้งฟอนต์ให้ครบฝั่ง complex script
 
 python-docx ตั้ง `run.font.name` ให้แค่ `w:ascii`/`w:hAnsi` — อักษรไทยใช้ `w:cs`
@@ -169,7 +177,7 @@ python tests/test_thai_break.py                          # รันก่อน
 `thai_break` มี `insert_zwsp` (ข้อความเดี่ยว) · `insert_zwsp_paragraph` · `insert_zwsp_document` ·
 `keep_together` · `plain_text` · `strip_zwsp` · `find_midword_breaks`
 `thai_fit` มี `set_run_font` · `justify_body` · `set_char_spacing` · `pick_condense` · `line_break` · `set_line_spacing`
-`inspect_docx` มี `to_pdf` · `midword_breaks` · `char_gaps` · `line_breaks` · `render_png` · `font_check` · `pdf_engine`
+`inspect_docx` มี `to_pdf` · `midword_breaks` · `char_gaps` · `line_breaks` · `render_png` · `font_check` · `pdf_engine` · `compat_mode`
 
 ## เครื่อง Mac
 
@@ -200,10 +208,11 @@ python tests/test_thai_break.py                          # รันก่อน
 
 ## ก่อนบอกว่าเสร็จ
 
-ไล่ 7 ข้อนี้ทุกครั้ง:
+ไล่ 8 ข้อนี้ทุกครั้ง:
 
 - [ ] เทียบค่ากับแม่แบบแล้ว (ขอบกระดาษ ขนาดอักษร ตัวหนา ย่อหน้า)
 - [ ] PDF ที่ใช้วัดมาจาก Word และฟอนต์ไม่ถูกแทน (ดูบรรทัด "ส่งออกด้วย" กับ "ฟอนต์ใน PDF" ในรายงาน)
+- [ ] รู้ว่าไฟล์อยู่โหมดไหน (บรรทัด "โหมดของไฟล์") และตรงกับแม่แบบ — ถ้าไม่ตรง ผลวัดเทียบกับแม่แบบไม่ได้
 - [ ] ZWSP อยู่เฉพาะเนื้อความ และไม่มีจุดตัดกลางคำเมื่อวัดจาก PDF ที่เรนเดอร์จริง
 - [ ] **อ่านรอยต่อบรรทัดทุกจุดแล้ว** (`--breaks`) — ชื่อย่อ ชื่อหน่วยงาน คำประสม ไม่ขาด
 - [ ] ขอบขวาชิด ช่องไฟเฉลี่ยไม่เกิน 0.8 pt
